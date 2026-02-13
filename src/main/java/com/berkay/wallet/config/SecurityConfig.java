@@ -23,6 +23,8 @@ public class SecurityConfig {
         security.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/wallets").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/transactions/**").permitAll()
                                 .anyRequest().authenticated())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
