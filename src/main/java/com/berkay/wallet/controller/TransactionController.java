@@ -2,6 +2,7 @@ package com.berkay.wallet.controller;
 
 import com.berkay.wallet.dto.TransactionRequest;
 import com.berkay.wallet.dto.TransactionResponse;
+import com.berkay.wallet.dto.TransferRequest;
 import com.berkay.wallet.sevice.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,5 +22,10 @@ public class TransactionController {
     @PostMapping("/deposit")
     public ResponseEntity<TransactionResponse> deposit(@Valid @RequestBody TransactionRequest request) {
         return ResponseEntity.ok(this.service.deposit(request));
+    }
+
+    @PostMapping("/transfer")
+    public ResponseEntity<TransactionResponse> transfer(@Valid @RequestBody TransferRequest request) {
+        return ResponseEntity.ok(this.service.transfer(request));
     }
 }

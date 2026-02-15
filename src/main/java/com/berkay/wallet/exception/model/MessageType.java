@@ -13,7 +13,8 @@ public enum MessageType {
     PASSWORD_TOO_WEAK(HttpStatus.BAD_REQUEST, "Password is too weak"),
     WALLET_ALREADY_EXISTS(HttpStatus.CONFLICT, "Wallet already exists for currency"),
     WALLET_NOT_FOUND(HttpStatus.NOT_FOUND, "Wallet not found"),
-    WALLET_CONFLICT(HttpStatus.CONFLICT, "Wallet could not be updated due to a conflicting transaction");
+    WALLET_CONFLICT(HttpStatus.CONFLICT, "Wallet could not be updated due to a conflicting transaction"),
+    INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "Insufficient balance");
 
     private final HttpStatus httpStatus;
     private final String message;
