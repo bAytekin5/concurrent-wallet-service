@@ -25,6 +25,7 @@ public class SecurityConfig {
                         auth.requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/wallets").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/transactions/**").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/transactions/**").permitAll()
                                 .anyRequest().authenticated())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

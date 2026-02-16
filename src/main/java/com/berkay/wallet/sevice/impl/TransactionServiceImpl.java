@@ -1,5 +1,6 @@
 package com.berkay.wallet.sevice.impl;
 
+import com.berkay.wallet.dto.TransactionHistoryResponse;
 import com.berkay.wallet.dto.TransactionRequest;
 import com.berkay.wallet.dto.TransactionResponse;
 import com.berkay.wallet.dto.TransferRequest;
@@ -19,10 +20,14 @@ import com.berkay.wallet.sevice.TransactionService;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -73,20 +78,31 @@ public class TransactionServiceImpl implements TransactionService {
                 request.senderWalletId(), request.receiverWalletId(), request.amount());
 
         Wallet walletSender = this.walletRepository.findById(request.senderWalletId()).orElseThrow(
-                () -> new WalletNotFoundException(request.senderWalletId())
+                () -> {
+                    log.error("Transfer failed: Sender wallet not found [{}]", request.receiverWalletId());
+                    return new WalletNotFoundException(request.senderWalletId());
+                }
         );
         Wallet walletReceiver = this.walletRepository.findById(request.receiverWalletId()).orElseThrow(
-                () -> new WalletNotFoundException(request.receiverWalletId())
+                () -> {
+                    log.warn("Transfer failed: Receiver wallet not found [{}]", walletSender.getId());
+                    return new WalletNotFoundException(request.receiverWalletId());
+                }
         );
 
         if (walletSender.getId().equals(walletReceiver.getId())) {
             // todo
+            log.warn("Transfer failed: Sender and receiver wallets are the same [{}]", walletSender.getId());
             throw new BaseException(new ErrorMessage(MessageType.WALLET_CONFLICT, "Wallet ID's cannot be equals"));
         }
         if (walletSender.getCurrency() != walletReceiver.getCurrency()) {
+            log.warn("Transfer failed: Currency mismatch. Sender [{}], Receiver [{}]",
+                    walletSender.getCurrency(), walletReceiver.getCurrency());
             throw new BaseException(new ErrorMessage(MessageType.WALLET_CONFLICT, "Currencies should be equal"));
         }
         if (walletSender.getBalance().compareTo(request.amount()) < 0) {
+            log.warn("Transfer failed: Insufficient balance. Wallet [{}], Current Balance [{}], Requested Amount [{}]",
+                    walletSender.getId(), walletSender.getBalance(), request.amount());
             throw new BaseException(new ErrorMessage(MessageType.INSUFFICIENT_BALANCE, ""));
         }
 
@@ -111,5 +127,24 @@ public class TransactionServiceImpl implements TransactionService {
                 save.getId(), walletSender.getBalance());
 
         return TransactionMapper.getTransactionResponse(save, walletSender);
+    }
+
+    @Override
+    public Page<TransactionHistoryResponse> getHistory(UUID walletId, int page, int size) {
+        if (!this.walletRepository.existsById(walletId)) {
+            throw new WalletNotFoundException(walletId);
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Transaction> transactions = this.transactionRepository.findAllByWalletId(walletId, pageable);
+
+        return transactions.map(t -> new TransactionHistoryResponse(
+                t.getId(),
+                t.getSenderWallet() != null ? t.getSenderWallet().getId() : null,
+                t.getReceiverWallet() != null ? t.getReceiverWallet().getId() : null,
+                t.getAmount(),
+                t.getTransactionType(),
+                t.getTransactionDate(),
+                t.getDescription()
+        ));
     }
 }
