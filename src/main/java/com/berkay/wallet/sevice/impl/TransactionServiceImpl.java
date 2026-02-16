@@ -1,9 +1,7 @@
 package com.berkay.wallet.sevice.impl;
 
-import com.berkay.wallet.dto.TransactionHistoryResponse;
-import com.berkay.wallet.dto.TransactionRequest;
-import com.berkay.wallet.dto.TransactionResponse;
-import com.berkay.wallet.dto.TransferRequest;
+import com.berkay.wallet.config.RabbitMQConfig;
+import com.berkay.wallet.dto.*;
 import com.berkay.wallet.entity.Transaction;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.entity.enums.TransactionStatus;
@@ -20,6 +18,9 @@ import com.berkay.wallet.sevice.TransactionService;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,9 +37,12 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final RabbitTemplate rabbitTemplate;
+    private final RabbitMQConfig config;
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "transactionHistory", allEntries = true)
     public TransactionResponse deposit(TransactionRequest request) {
 
         Wallet wallet = this.walletRepository.findById(request.walletId()).orElseThrow(
@@ -72,6 +76,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "transactionHistory", allEntries = true)
     public TransactionResponse transfer(TransferRequest request) {
 
         log.info("Transfer initiated: Sender [{}], Receiver [{}], Amount [{}]",
@@ -112,6 +117,10 @@ public class TransactionServiceImpl implements TransactionService {
         this.walletRepository.save(walletSender);
         this.walletRepository.save(walletReceiver);
 
+        TransferEvent event = new TransferEvent(walletSender.getId(), walletReceiver.getId(), request.amount());
+        this.rabbitTemplate.convertAndSend(config.getTransferQueueName(), event);
+        log.info("Message sent to RabbitMQ");
+
         Transaction transaction = Transaction.builder()
                 .senderWallet(walletSender)
                 .receiverWallet(walletReceiver)
@@ -130,7 +139,11 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "transactionHistory", key = "#walletId.toString() + '_' + #page")
     public Page<TransactionHistoryResponse> getHistory(UUID walletId, int page, int size) {
+
+        log.info("Fetching history from database for wallet: {}", walletId);
+
         if (!this.walletRepository.existsById(walletId)) {
             throw new WalletNotFoundException(walletId);
         }

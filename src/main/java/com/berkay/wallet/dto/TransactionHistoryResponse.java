@@ -2,6 +2,7 @@ package com.berkay.wallet.dto;
 
 import com.berkay.wallet.entity.enums.TransactionType;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -14,5 +15,5 @@ public record TransactionHistoryResponse(
         TransactionType type,
         LocalDateTime transactionDate,
         String description
-) {
+) implements Serializable {
 }
