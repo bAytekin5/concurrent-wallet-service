@@ -6,11 +6,9 @@ import com.berkay.wallet.entity.Transaction;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.entity.enums.TransactionStatus;
 import com.berkay.wallet.entity.enums.TransactionType;
-import com.berkay.wallet.exception.BaseException;
+import com.berkay.wallet.exception.InsufficientBalanceException;
 import com.berkay.wallet.exception.WalletNotFoundException;
 import com.berkay.wallet.exception.WalletUpdateConflictException;
-import com.berkay.wallet.exception.model.ErrorMessage;
-import com.berkay.wallet.exception.model.MessageType;
 import com.berkay.wallet.mapper.TransactionMapper;
 import com.berkay.wallet.repository.TransactionRepository;
 import com.berkay.wallet.repository.WalletRepository;
@@ -46,7 +44,7 @@ public class TransactionServiceImpl implements TransactionService {
     public TransactionResponse deposit(TransactionRequest request) {
 
         Wallet wallet = this.walletRepository.findById(request.walletId()).orElseThrow(
-                () -> new WalletNotFoundException(request.walletId())
+                () -> new WalletNotFoundException(String.valueOf(request.walletId()))
         );
 
         try {
@@ -69,7 +67,7 @@ public class TransactionServiceImpl implements TransactionService {
             return TransactionMapper.getTransactionResponse(savedTransaction, updatedWallet);
         } catch (OptimisticLockException ex) {
             log.warn("Concurrent update detected for walletId={}", wallet.getId());
-            throw new WalletUpdateConflictException(wallet.getId());
+            throw new WalletUpdateConflictException(String.valueOf(wallet.getId()));
         }
 
     }
@@ -85,30 +83,30 @@ public class TransactionServiceImpl implements TransactionService {
         Wallet walletSender = this.walletRepository.findById(request.senderWalletId()).orElseThrow(
                 () -> {
                     log.error("Transfer failed: Sender wallet not found [{}]", request.receiverWalletId());
-                    return new WalletNotFoundException(request.senderWalletId());
+                    return new WalletNotFoundException(String.valueOf(request.senderWalletId()));
                 }
         );
         Wallet walletReceiver = this.walletRepository.findById(request.receiverWalletId()).orElseThrow(
                 () -> {
                     log.warn("Transfer failed: Receiver wallet not found [{}]", walletSender.getId());
-                    return new WalletNotFoundException(request.receiverWalletId());
+                    return new WalletNotFoundException(String.valueOf(request.receiverWalletId()));
                 }
         );
 
         if (walletSender.getId().equals(walletReceiver.getId())) {
             // todo
             log.warn("Transfer failed: Sender and receiver wallets are the same [{}]", walletSender.getId());
-            throw new BaseException(new ErrorMessage(MessageType.WALLET_CONFLICT, "Wallet ID's cannot be equals"));
+            throw new WalletUpdateConflictException(String.valueOf(walletSender.getId()));
         }
         if (walletSender.getCurrency() != walletReceiver.getCurrency()) {
             log.warn("Transfer failed: Currency mismatch. Sender [{}], Receiver [{}]",
                     walletSender.getCurrency(), walletReceiver.getCurrency());
-            throw new BaseException(new ErrorMessage(MessageType.WALLET_CONFLICT, "Currencies should be equal"));
+            throw new WalletUpdateConflictException(String.valueOf(walletSender.getId()));
         }
         if (walletSender.getBalance().compareTo(request.amount()) < 0) {
             log.warn("Transfer failed: Insufficient balance. Wallet [{}], Current Balance [{}], Requested Amount [{}]",
                     walletSender.getId(), walletSender.getBalance(), request.amount());
-            throw new BaseException(new ErrorMessage(MessageType.INSUFFICIENT_BALANCE, ""));
+            throw new InsufficientBalanceException("Wallet Id: " + walletSender.getId());
         }
 
         walletSender.setBalance(walletSender.getBalance().subtract(request.amount()));
@@ -145,7 +143,7 @@ public class TransactionServiceImpl implements TransactionService {
         log.info("Fetching history from database for wallet: {}", walletId);
 
         if (!this.walletRepository.existsById(walletId)) {
-            throw new WalletNotFoundException(walletId);
+            throw new WalletNotFoundException(String.valueOf(walletId));
         }
         Pageable pageable = PageRequest.of(page, size);
         Page<Transaction> transactions = this.transactionRepository.findAllByWalletId(walletId, pageable);

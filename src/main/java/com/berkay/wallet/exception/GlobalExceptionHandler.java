@@ -1,14 +1,13 @@
 package com.berkay.wallet.exception;
 
 import com.berkay.wallet.exception.model.BaseApiError;
-import com.berkay.wallet.exception.model.Exception;
+import com.berkay.wallet.exception.model.ExceptionDetail;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 
 import java.net.Inet4Address;
@@ -17,7 +16,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = BaseException.class)
@@ -41,19 +40,20 @@ public class GlobalExceptionHandler {
 
 
     private <E> ResponseEntity<BaseApiError<E>> createResponse(E errorBody, HttpStatus status, WebRequest request) {
-        Exception<E> exception = new Exception<>();
-        exception.setCreateTime(LocalDateTime.now());
-        exception.setMessage(errorBody);
-        exception.setPath(request.getDescription(false).substring(4));
+        ExceptionDetail<E> exceptionDetail = new ExceptionDetail<>();
+        exceptionDetail.setCreateTime(LocalDateTime.now());
+        exceptionDetail.setMessage(errorBody);
+        // WebRequest.getDescription(false) returns "uri=/api/..." format, substring(4) strips "uri=" prefix
+        exceptionDetail.setPath(request.getDescription(false).substring(4));
 
         try {
-            exception.setHostName(Inet4Address.getLocalHost().getHostName());
+            exceptionDetail.setHostName(Inet4Address.getLocalHost().getHostName());
         } catch (UnknownHostException e) {
-            exception.setHostName("unknow-host");
+            exceptionDetail.setHostName("unknown-host");
         }
         BaseApiError<E> response = new BaseApiError<>();
         response.setStatus(status.value());
-        response.setException(exception);
+        response.setException(exceptionDetail);
 
         return new ResponseEntity<>(response, status);
     }
