@@ -40,7 +40,3 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 ```bash
 ./mvnw test
 ```
-
-## Author
-
-**Berkay Aytekin** -- [berkayaytekin.com](https://berkayaytekin.com) -- berkayaytkn@gmail.com
