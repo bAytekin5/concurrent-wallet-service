@@ -4,8 +4,8 @@ import com.berkay.wallet.dto.WalletCreateRequest;
 import com.berkay.wallet.dto.WalletResponse;
 import com.berkay.wallet.entity.User;
 import com.berkay.wallet.entity.Wallet;
+import com.berkay.wallet.exception.GenericAlreadyExistsException;
 import com.berkay.wallet.exception.UserNotFoundException;
-import com.berkay.wallet.exception.WalletAlreadyExistsException;
 import com.berkay.wallet.mapper.WalletMapper;
 import com.berkay.wallet.repository.UserRepository;
 import com.berkay.wallet.repository.WalletRepository;
@@ -29,7 +29,7 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new UserNotFoundException(String.valueOf(request.userId())));
 
         if (this.walletRepository.existsByUserIdAndCurrency(request.userId(), request.currency())) {
-            throw new WalletAlreadyExistsException(request.currency().name());
+            throw new GenericAlreadyExistsException(request.currency().name());
         }
 
         Wallet entity = WalletMapper.toEntity(request);
@@ -38,3 +38,4 @@ public class WalletServiceImpl implements WalletService {
         return WalletMapper.toResponse(entity);
     }
 }
+

@@ -1,10 +1,26 @@
 package com.berkay.wallet.exception;
 
-import com.berkay.wallet.exception.model.ErrorMessage;
-import com.berkay.wallet.exception.model.MessageType;
+import lombok.Getter;
 
-public class WalletNotFoundException extends BaseException {
-    public WalletNotFoundException(String detail) {
-        super(new ErrorMessage(MessageType.WALLET_NOT_FOUND, detail));
+import java.io.Serial;
+
+@Getter
+public class WalletNotFoundException extends RuntimeException {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+    private final String errMsgKey;
+    private final String errCode;
+
+    public WalletNotFoundException(ErrorCode code) {
+        super(code.getErrMsgKey());
+        this.errMsgKey = code.getErrMsgKey();
+        this.errCode = code.getErrCode();
+    }
+
+    public WalletNotFoundException(String message) {
+        super(message);
+        this.errMsgKey = ErrorCode.WALLET_NOT_FOUND.getErrMsgKey();
+        this.errCode = ErrorCode.WALLET_NOT_FOUND.getErrCode();
     }
 }

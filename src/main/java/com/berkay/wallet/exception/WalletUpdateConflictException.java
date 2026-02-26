@@ -1,10 +1,23 @@
 package com.berkay.wallet.exception;
 
-import com.berkay.wallet.exception.model.ErrorMessage;
-import com.berkay.wallet.exception.model.MessageType;
+import java.io.Serial;
 
-public class WalletUpdateConflictException extends BaseException {
-    public WalletUpdateConflictException(String detail) {
-        super(new ErrorMessage(MessageType.WALLET_CONFLICT, detail));
+public class WalletUpdateConflictException extends RuntimeException {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+    private final String errMsgKey;
+    private final String errCode;
+
+    public WalletUpdateConflictException(ErrorCode code) {
+        super(code.getErrMsgKey());
+        this.errMsgKey = code.getErrMsgKey();
+        this.errCode = code.getErrCode();
+    }
+
+    public WalletUpdateConflictException(String message) {
+        super(message);
+        this.errMsgKey = ErrorCode.WALLET_UPDATE_CONFLICT.getErrMsgKey();
+        this.errCode = ErrorCode.WALLET_UPDATE_CONFLICT.getErrCode();
     }
 }
