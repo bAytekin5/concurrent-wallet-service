@@ -6,6 +6,7 @@ import com.berkay.wallet.entity.User;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.exception.GenericAlreadyExistsException;
 import com.berkay.wallet.exception.UserNotFoundException;
+import com.berkay.wallet.exception.WalletNotFoundException;
 import com.berkay.wallet.mapper.WalletMapper;
 import com.berkay.wallet.repository.UserRepository;
 import com.berkay.wallet.repository.WalletRepository;
@@ -13,6 +14,8 @@ import com.berkay.wallet.sevice.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,19 +26,25 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
-    public WalletResponse createWallet(WalletCreateRequest request) {
+    public Wallet createWallet(WalletCreateRequest request) {
 
         User user = this.userRepository.findById(request.userId())
-                .orElseThrow(() -> new UserNotFoundException(String.valueOf(request.userId())));
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + request.userId()));
 
         if (this.walletRepository.existsByUserIdAndCurrency(request.userId(), request.currency())) {
             throw new GenericAlreadyExistsException(request.currency().name());
         }
 
         Wallet entity = WalletMapper.toEntity(request);
-        entity.setUser(user);
-        entity = this.walletRepository.save(entity);
-        return WalletMapper.toResponse(entity);
+        user.addWallets(entity);
+        return this.walletRepository.save(entity);
+    }
+
+    @Override
+    public Wallet getWalletById(String id) {
+        return this.walletRepository.findById(UUID.fromString(id)).orElseThrow(
+                () -> new WalletNotFoundException("Wallet not found")
+        );
     }
 }
 

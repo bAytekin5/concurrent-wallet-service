@@ -7,11 +7,11 @@ import com.berkay.wallet.entity.User;
 public class UserMapper {
 
     public static User toEntity(UserRegisterRequest request) {
-        return User.builder()
-                .username(request.username())
-                .email(request.email())
-                .passwordHash(request.password())
-                .build();
+        User user = new User();
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setPasswordHash(request.password());
+        return user;
     }
 
     public static UserResponse toResponse(User user) {

@@ -5,13 +5,10 @@ import com.berkay.wallet.dto.WalletResponse;
 import com.berkay.wallet.entity.User;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.entity.enums.Currency;
-import com.berkay.wallet.exception.BaseException;
-import com.berkay.wallet.exception.WalletAlreadyExistsException;
+import com.berkay.wallet.exception.GenericAlreadyExistsException;
 import com.berkay.wallet.repository.UserRepository;
 import com.berkay.wallet.repository.WalletRepository;
-import com.berkay.wallet.sevice.WalletService;
 import com.berkay.wallet.sevice.impl.WalletServiceImpl;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,8 +40,8 @@ public class WalletServiceTest {
     @DisplayName("Should create wallet successfully when user exists and no wallet exists")
     void shouldCreateWallet_WhenUserExistsAndWalletDoesNot() {
         // arr
-        User user = new User();
         UUID userId = UUID.randomUUID();
+        User user = new User();
         user.setId(userId);
 
         WalletCreateRequest request = new WalletCreateRequest(userId, Currency.TRY);
@@ -58,13 +56,20 @@ public class WalletServiceTest {
         });
 
         // act
-        WalletResponse response = walletService.createWallet(request);
+        Wallet response = walletService.createWallet(request);
 
+        // assert
         assertNotNull(response);
-        assertEquals(Currency.TRY, response.currency());
-        assertEquals(userId, response.userId());
+        assertNotNull(response.getId(), "Kaydedilen cüzdanın ID'si null olmamalı");
+
+        assertEquals(Currency.TRY, response.getCurrency());
+
+        assertEquals(userId, response.getUser().getId());
+
+        assertEquals(BigDecimal.ZERO, response.getBalance());
 
         verify(userRepository).findById(userId);
+        verify(walletRepository).existsByUserIdAndCurrency(userId, Currency.TRY);
         verify(walletRepository).save(any(Wallet.class));
     }
 
@@ -83,7 +88,7 @@ public class WalletServiceTest {
         when(walletRepository.existsByUserIdAndCurrency(userId, Currency.TRY)).thenReturn(true);
 
         // act
-        assertThrows(WalletAlreadyExistsException.class, () -> walletService.createWallet(request));
+        assertThrows(GenericAlreadyExistsException.class, () -> walletService.createWallet(request));
 
         verify(walletRepository).existsByUserIdAndCurrency(userId, currency);
         verify(walletRepository, never()).save(any(Wallet.class));

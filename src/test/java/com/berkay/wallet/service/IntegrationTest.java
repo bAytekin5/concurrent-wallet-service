@@ -36,11 +36,10 @@ public class IntegrationTest {
 
     @BeforeEach
     void setup() {
-        User user = User.builder()
-                .username("test_user")
-                .email("test@email.com")
-                .passwordHash("secrettpass")
-                .build();
+        User user = new User();
+        user.setUsername("test_user");
+        user.setEmail("test@email.com");
+        user.setPasswordHash("secret-pass");
         this.userRepository.save(user);
 
         Wallet wallet = Wallet.builder()
@@ -49,6 +48,7 @@ public class IntegrationTest {
                 .balance(BigDecimal.ZERO)
                 .build();
         this.walletRepository.save(wallet);
+        user.addWallets(wallet);
         this.walletId = wallet.getId();
     }
 

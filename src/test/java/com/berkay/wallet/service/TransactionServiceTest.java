@@ -8,7 +8,7 @@ import com.berkay.wallet.entity.Transaction;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.entity.enums.Currency;
 import com.berkay.wallet.entity.enums.TransactionType;
-import com.berkay.wallet.exception.BaseException;
+import com.berkay.wallet.exception.ResourceNotFoundException;
 import com.berkay.wallet.repository.TransactionRepository;
 import com.berkay.wallet.repository.WalletRepository;
 import com.berkay.wallet.sevice.impl.TransactionServiceImpl;
@@ -149,7 +149,7 @@ public class TransactionServiceTest {
         when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
 
         // act, assert
-        assertThrows(BaseException.class, () -> transactionService.transfer(request));
+        assertThrows(ResourceNotFoundException.class, () -> transactionService.transfer(request));
 
         verify(walletRepository, never()).save(any(Wallet.class));
         verify(transactionRepository, never()).save(any(Transaction.class));
@@ -170,7 +170,7 @@ public class TransactionServiceTest {
         when(walletRepository.findById(sameWalletId)).thenReturn(Optional.of(wallet));
 
         // act, assert
-        assertThrows(BaseException.class, () -> transactionService.transfer(request));
+        assertThrows(ResourceNotFoundException.class, () -> transactionService.transfer(request));
 
         verify(walletRepository, never()).save(any(Wallet.class));
     }

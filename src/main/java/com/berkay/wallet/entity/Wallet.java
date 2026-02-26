@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 @Builder
 public class Wallet extends BaseEntity {
 
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
