@@ -14,14 +14,4 @@ public class WalletMapper {
                 .balance(BigDecimal.ZERO)
                 .build();
     }
-
-    public static WalletResponse toResponse(Wallet entity) {
-        return new WalletResponse(
-                entity.getId(),
-                entity.getUser().getId(),
-                entity.getCurrency(),
-                entity.getBalance(),
-                entity.getCreatedAt()
-        );
-    }
 }

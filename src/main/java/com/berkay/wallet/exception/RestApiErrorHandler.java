@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -24,6 +25,20 @@ import java.util.Locale;
 public class RestApiErrorHandler {
 
     private final MessageSource messageSource;
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleObjectOptimisticLockingFailureException(HttpServletRequest request,
+                                                                                  ObjectOptimisticLockingFailureException ex,
+                                                                                  Locale locale) {
+        log.error("Optimistic lock failure. URL: {}", request.getRequestURL());
+        ApiError error = ErrorUtils.createError(ErrorCode.GENERIC_ERROR.getErrMsgKey(),
+                        ErrorCode.GENERIC_ERROR.getErrCode(),
+                        HttpStatus.CONFLICT.value())
+                .setUrl(request.getRequestURL().toString())
+                .setReqMethod(request.getMethod())
+                .setTimestamp(Instant.now());
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleException(HttpServletRequest request, Exception ex, Locale locale) {
@@ -183,6 +198,21 @@ public class RestApiErrorHandler {
                 .setReqMethod(request.getMethod())
                 .setTimestamp(Instant.now());
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(WalletUpdateConflictException.class)
+    public ResponseEntity<ApiError> handleWalletUpdateConflictException(HttpServletRequest request,
+                                                                        WalletUpdateConflictException ex,
+                                                                        Locale locale) {
+        log.warn("Wallet update conflict occurred. URL: {}, WalletID: {}", request.getRequestURL(), ex.getMessage());
+        ApiError error = ErrorUtils.createError(
+                        String.format("%s %s", ErrorCode.WALLET_UPDATE_CONFLICT.getErrMsgKey(), ex.getMessage()),
+                        ErrorCode.WALLET_UPDATE_CONFLICT.getErrCode(),
+                        HttpStatus.CONFLICT.value())
+                .setUrl(request.getRequestURL().toString())
+                .setReqMethod(request.getMethod())
+                .setTimestamp(Instant.now());
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(GenericAlreadyExistsException.class)

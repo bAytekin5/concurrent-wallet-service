@@ -1,5 +1,6 @@
 package com.berkay.wallet.entity;
 
+import com.berkay.wallet.entity.enums.Currency;
 import com.berkay.wallet.entity.enums.TransactionStatus;
 import com.berkay.wallet.entity.enums.TransactionType;
 import jakarta.persistence.*;
@@ -27,6 +28,10 @@ public class Transaction extends BaseEntity {
 
     @Column(nullable = false)
     private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Currency currency;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

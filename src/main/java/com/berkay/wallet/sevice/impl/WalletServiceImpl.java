@@ -1,9 +1,9 @@
 package com.berkay.wallet.sevice.impl;
 
 import com.berkay.wallet.dto.WalletCreateRequest;
-import com.berkay.wallet.dto.WalletResponse;
 import com.berkay.wallet.entity.User;
 import com.berkay.wallet.entity.Wallet;
+import com.berkay.wallet.entity.enums.Currency;
 import com.berkay.wallet.exception.GenericAlreadyExistsException;
 import com.berkay.wallet.exception.UserNotFoundException;
 import com.berkay.wallet.exception.WalletNotFoundException;
@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,15 +38,29 @@ public class WalletServiceImpl implements WalletService {
         }
 
         Wallet entity = WalletMapper.toEntity(request);
+        entity.setBalance(BigDecimal.ZERO);
         user.addWallets(entity);
         return this.walletRepository.save(entity);
     }
 
     @Override
-    public Wallet getWalletById(String id) {
-        return this.walletRepository.findById(UUID.fromString(id)).orElseThrow(
+    public Wallet getWalletById(UUID id) {
+        return this.walletRepository.findById(id).orElseThrow(
                 () -> new WalletNotFoundException("Wallet not found")
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Wallet getWalletByUserIdAndCurrency(UUID userId, Currency currency) {
+        return this.walletRepository.findByUserIdAndCurrency(userId, currency).orElseThrow(
+                () -> new WalletNotFoundException("Wallet not found!")
+        );
+    }
+
+    @Override
+    public List<Wallet> getWalletsByUserId(UUID userId) {
+        return this.walletRepository.findAllByUserId(userId);
     }
 }
 

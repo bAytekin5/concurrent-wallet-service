@@ -57,7 +57,9 @@ public class TransactionServiceTest {
         wallet.setId(walletId);
         wallet.setBalance(initialBalance);
 
-        TransactionRequest request = new TransactionRequest(walletId, depositAmount);
+        Currency currency = Currency.TRY;
+
+        TransactionRequest request = new TransactionRequest(walletId, depositAmount, currency);
 
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
 
@@ -101,7 +103,7 @@ public class TransactionServiceTest {
         receiverWallet.setCurrency(Currency.TRY);
         receiverWallet.setBalance(BigDecimal.valueOf(20));
 
-        TransferRequest transferRequest = new TransferRequest(senderId, receiverId, transferAmount);
+        TransferRequest transferRequest = new TransferRequest(senderId, receiverId, transferAmount, Currency.TRY);
 
         when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
         when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
@@ -143,7 +145,7 @@ public class TransactionServiceTest {
         receiverWallet.setId(receiverId);
         receiverWallet.setCurrency(Currency.TRY);
         receiverWallet.setBalance(BigDecimal.ZERO);
-        TransferRequest request = new TransferRequest(senderId, receiverId, BigDecimal.valueOf(100));
+        TransferRequest request = new TransferRequest(senderId, receiverId, BigDecimal.valueOf(100), Currency.TRY);
 
         when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
         when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
@@ -165,7 +167,7 @@ public class TransactionServiceTest {
         wallet.setCurrency(Currency.TRY);
         wallet.setBalance(BigDecimal.valueOf(100));
 
-        TransferRequest request = new TransferRequest(sameWalletId, sameWalletId, BigDecimal.valueOf(50));
+        TransferRequest request = new TransferRequest(sameWalletId, sameWalletId, BigDecimal.valueOf(50), Currency.TRY);
 
         when(walletRepository.findById(sameWalletId)).thenReturn(Optional.of(wallet));
 

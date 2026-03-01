@@ -17,6 +17,7 @@ import java.util.UUID;
 public class WalletResponse extends RepresentationModel<WalletResponse> {
     private UUID id;
     private UUID userId;
+    private String username;
     private Currency currency;
     private BigDecimal balance;
     private LocalDateTime createdAt;

@@ -6,8 +6,6 @@ import com.berkay.wallet.entity.Wallet;
 import org.springframework.hateoas.server.mvc.RepresentationModelAssemblerSupport;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
-
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
@@ -15,8 +13,8 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 public class WalletRepresentationModelAssembler
         extends RepresentationModelAssemblerSupport<Wallet, WalletResponse> {
 
-    public WalletRepresentationModelAssembler(Class<?> controllerClass, Class<WalletResponse> resourceType) {
-        super(controllerClass, resourceType);
+    public WalletRepresentationModelAssembler() {
+        super(WalletController.class, WalletResponse.class);
     }
 
     @Override
@@ -24,12 +22,18 @@ public class WalletRepresentationModelAssembler
         WalletResponse response = instantiateModel(entity);
         response.setId(entity.getId());
         response.setUserId(entity.getUser().getId());
+        response.setUsername(entity.getUser().getUsername());
+        response.setBalance(entity.getBalance());
         response.setCurrency(entity.getCurrency());
         response.setCreatedAt(entity.getCreatedAt());
 
         response.add(linkTo(
-                methodOn(WalletController.class).getWalletById(entity.getId().toString()))
+                methodOn(WalletController.class).getWalletById(entity.getId()))
                 .withSelfRel());
+
+        response.add(linkTo(
+                methodOn(WalletController.class).getWalletsByUserId(entity.getUser().getId()))
+                .withRel("user-all-wallets"));
 
         return response;
     }

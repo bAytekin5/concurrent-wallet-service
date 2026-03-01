@@ -1,5 +1,6 @@
 package com.berkay.wallet.repository;
 
+import com.berkay.wallet.entity.User;
 import com.berkay.wallet.entity.Wallet;
 import com.berkay.wallet.entity.enums.Currency;
 import org.springframework.data.jpa.repository.JpaRepository;

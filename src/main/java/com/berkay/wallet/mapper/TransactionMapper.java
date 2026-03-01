@@ -14,6 +14,7 @@ public class TransactionMapper {
                 updatedWallet.getId(),
                 savedTransaction.getAmount(),
                 updatedWallet.getBalance(),
+                savedTransaction.getCurrency(),
                 savedTransaction.getTransactionType(),
                 savedTransaction.getStatus(),
                 savedTransaction.getTransactionDate()

@@ -12,11 +12,14 @@ import com.berkay.wallet.exception.WalletUpdateConflictException;
 import com.berkay.wallet.mapper.TransactionMapper;
 import com.berkay.wallet.repository.TransactionRepository;
 import com.berkay.wallet.repository.WalletRepository;
+import com.berkay.wallet.sevice.LedgerService;
+import com.berkay.wallet.sevice.TransactionLogService;
 import com.berkay.wallet.sevice.TransactionService;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -35,8 +39,13 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final LedgerService ledgerService;
+    private final TransactionLogService logService;
     private final RabbitTemplate rabbitTemplate;
     private final RabbitMQConfig config;
+
+    @Value(value = "${app.finance.system.account-id}")
+    private UUID systemAccountId;
 
     @Override
     @Transactional
@@ -44,96 +53,93 @@ public class TransactionServiceImpl implements TransactionService {
     public TransactionResponse deposit(TransactionRequest request) {
 
         Wallet wallet = this.walletRepository.findById(request.walletId()).orElseThrow(
-                () -> new WalletNotFoundException("Invalid wallet id")
+                () -> new WalletNotFoundException("Invalid wallet id: " + request.walletId())
         );
 
-        try {
-            wallet.setBalance(wallet.getBalance().add(request.amount()));
-
-            Wallet updatedWallet = this.walletRepository.save(wallet);
-
-            Transaction transaction = Transaction.builder()
-                    .receiverWallet(updatedWallet)
-                    .amount(request.amount())
-                    .transactionType(TransactionType.DEPOSIT)
-                    .status(TransactionStatus.SUCCESS)
-                    .transactionDate(LocalDateTime.now())
-                    .description("Deposit transaction")
-                    .build();
-
-            Transaction savedTransaction = this.transactionRepository.save(transaction);
-            log.info("Deposit successful: walletId={}, amount={}", wallet.getId(), request.amount());
-
-            return TransactionMapper.getTransactionResponse(savedTransaction, updatedWallet);
-        } catch (OptimisticLockException ex) {
-            log.warn("Concurrent update detected for walletId={}", wallet.getId());
-            throw new WalletUpdateConflictException(String.valueOf(wallet.getId()));
+        if (!wallet.getCurrency().equals(request.currency())) {
+            throw new IllegalArgumentException("Currency mismatch excepted: " + wallet.getCurrency());
         }
 
+        Transaction savedTransaction = this.logService.createPendingTransaction(wallet, request);
+
+        try {
+            this.ledgerService.createDoubleEntry(
+                    savedTransaction,
+                    getSystemAccountId(),
+                    wallet.getId(),
+                    request.amount(),
+                    request.currency()
+            );
+            wallet.setBalance(wallet.getBalance().add(request.amount()));
+            this.walletRepository.save(wallet);
+
+            savedTransaction.setStatus(TransactionStatus.SUCCESS);
+            log.info("Deposit successful: walletId={}, amount={}, transactionId={}",
+                    wallet.getId(), request.amount(), savedTransaction.getId());
+            return TransactionMapper.getTransactionResponse(savedTransaction, wallet);
+        } catch (Exception e) {
+            this.logService.markAsFailed(savedTransaction.getId(), e.getMessage());
+            log.error("error during deposit execution. Transaction rolled back." + e);
+            throw e;
+        }
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = {IllegalArgumentException.class, IllegalStateException.class})
     @CacheEvict(cacheNames = "transactionHistory", allEntries = true)
     public TransactionResponse transfer(TransferRequest request) {
 
         log.info("Transfer initiated: Sender [{}], Receiver [{}], Amount [{}]",
                 request.senderWalletId(), request.receiverWalletId(), request.amount());
 
-        Wallet walletSender = this.walletRepository.findById(request.senderWalletId()).orElseThrow(
-                () -> {
-                    log.error("Transfer failed: Sender wallet not found [{}]", request.receiverWalletId());
-                    return new ResourceNotFoundException("Invalid wallet id");
-                }
-        );
-        Wallet walletReceiver = this.walletRepository.findById(request.receiverWalletId()).orElseThrow(
-                () -> {
-                    log.warn("Transfer failed: Receiver wallet not found [{}]", walletSender.getId());
-                    return new ResourceNotFoundException("Invalid wallet id");
-                }
-        );
+        if (request.senderWalletId().equals(request.receiverWalletId())) {
+            throw new IllegalArgumentException("Sender and receiver wallets cannot be the same");
+        }
+        Wallet walletSender = this.walletRepository.findById(request.senderWalletId())
+                .orElseThrow(() -> new WalletNotFoundException("Sender wallet not found: " + request.senderWalletId()));
 
-        if (walletSender.getId().equals(walletReceiver.getId())) {
-            // todo
-            log.warn("Transfer failed: Sender and receiver wallets are the same [{}]", walletSender.getId());
-            throw new ResourceNotFoundException("Invalid wallet id");
+        Wallet walletReceiver = this.walletRepository.findById(request.receiverWalletId()).orElseThrow(
+                () -> new WalletNotFoundException("Receiver wallet not found " + request.receiverWalletId()));
+
+        if (!walletSender.getCurrency().equals(walletReceiver.getCurrency())) {
+            throw new IllegalArgumentException("Currency mismatch between sender and receiver wallets");
         }
-        if (walletSender.getCurrency() != walletReceiver.getCurrency()) {
-            log.warn("Transfer failed: Currency mismatch. Sender [{}], Receiver [{}]",
-                    walletSender.getCurrency(), walletReceiver.getCurrency());
-            throw new ResourceNotFoundException("Invalid wallet id");
-        }
+
+        Transaction transaction = this.logService.createPendingTransaction(request, walletSender, walletReceiver);
+
         if (walletSender.getBalance().compareTo(request.amount()) < 0) {
+            this.logService.markAsFailed(transaction.getId(), "Insufficient balance");
             log.warn("Transfer failed: Insufficient balance. Wallet [{}], Current Balance [{}], Requested Amount [{}]",
                     walletSender.getId(), walletSender.getBalance(), request.amount());
-            throw new ResourceNotFoundException("Invalid wallet id");
+            throw new IllegalStateException("Insufficient balance in sender wallet");
         }
+        try {
+            this.ledgerService.createDoubleEntry(
+                    transaction,
+                    walletSender.getId(),
+                    walletReceiver.getId(),
+                    request.amount(),
+                    request.currency()
+            );
+            walletSender.setBalance(walletSender.getBalance().subtract(request.amount()));
+            walletReceiver.setBalance(walletReceiver.getBalance().add(request.amount()));
+            this.walletRepository.saveAll(List.of(walletSender, walletReceiver));
 
-        walletSender.setBalance(walletSender.getBalance().subtract(request.amount()));
-        walletReceiver.setBalance(walletReceiver.getBalance().add(request.amount()));
+            transaction.setStatus(TransactionStatus.SUCCESS);
 
-        this.walletRepository.save(walletSender);
-        this.walletRepository.save(walletReceiver);
+            // todo -- send the message to RabbitMQ only if the database is successfully committed
+            TransferEvent event = new TransferEvent(walletSender.getId(), walletReceiver.getId(), request.amount());
+            this.rabbitTemplate.convertAndSend(config.getTransferQueueName(), event);
+            log.info("Message sent to RabbitMQ");
 
-        TransferEvent event = new TransferEvent(walletSender.getId(), walletReceiver.getId(), request.amount());
-        this.rabbitTemplate.convertAndSend(config.getTransferQueueName(), event);
-        log.info("Message sent to RabbitMQ");
+            log.info("Transfer successful: Transaction ID [{}], Sender New Balance [{}]",
+                    transaction.getId(), walletSender.getBalance());
 
-        Transaction transaction = Transaction.builder()
-                .senderWallet(walletSender)
-                .receiverWallet(walletReceiver)
-                .amount(request.amount())
-                .transactionType(TransactionType.TRANSFER)
-                .status(TransactionStatus.SUCCESS)
-                .transactionDate(LocalDateTime.now())
-                .description("Transfer from: " + walletSender.getId().toString().substring(0, 8) + " to " + walletReceiver.getId().toString().substring(0, 8))
-                .build();
-        Transaction save = this.transactionRepository.save(transaction);
-
-        log.info("Transfer successful: Transaction ID [{}], Sender New Balance [{}]",
-                save.getId(), walletSender.getBalance());
-
-        return TransactionMapper.getTransactionResponse(save, walletSender);
+            return TransactionMapper.getTransactionResponse(transaction, walletSender);
+        } catch (Exception e) {
+            log.error("error during transfer execution. Transaction rolled back.", e);
+            throw e;
+        }
     }
 
     @Override
@@ -157,5 +163,9 @@ public class TransactionServiceImpl implements TransactionService {
                 t.getTransactionDate(),
                 t.getDescription()
         ));
+    }
+
+    private UUID getSystemAccountId() {
+        return this.systemAccountId;
     }
 }

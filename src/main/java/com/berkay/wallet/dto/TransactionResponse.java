@@ -1,5 +1,6 @@
 package com.berkay.wallet.dto;
 
+import com.berkay.wallet.entity.enums.Currency;
 import com.berkay.wallet.entity.enums.TransactionStatus;
 import com.berkay.wallet.entity.enums.TransactionType;
 
@@ -12,6 +13,7 @@ public record TransactionResponse(
         UUID walletId,
         BigDecimal amount,
         BigDecimal newBalance,
+        Currency currency,
         TransactionType type,
         TransactionStatus status,
         LocalDateTime transactionDate
