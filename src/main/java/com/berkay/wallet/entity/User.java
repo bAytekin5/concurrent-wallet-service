@@ -33,12 +33,11 @@ public class User extends BaseEntity {
         wallet.setUser(this);
     }
 
-    public void removeWallets(String walletId) {
+    public void removeWallets(Wallet wallet) {
         Iterator<Wallet> iterator = wallets.iterator();
-
         while (iterator.hasNext()) {
             Wallet w = iterator.next();
-            if (w.getId().toString().equals(walletId)) {
+            if (w.equals(wallet)) {
                 iterator.remove();
                 w.setUser(null);
                 return;

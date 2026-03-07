@@ -1,5 +1,6 @@
 package com.berkay.wallet.exception;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.logging.log4j.util.Strings;
@@ -18,9 +19,11 @@ public class ApiError implements Serializable {
     private String errCode;
     private String message;
     private Integer status;
+    @Setter(AccessLevel.NONE)
     private String url = "Not available";
+    @Setter(AccessLevel.NONE)
     private String reqMethod = "Not available";
-
+    @Setter(AccessLevel.NONE)
     private Instant timestamp;
 
     public ApiError setUrl(String url) {
